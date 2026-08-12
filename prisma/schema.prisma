@@ -1,0 +1,118 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  VENDOR
+  CUSTOMER
+  AFFILIATE
+}
+
+enum OrderStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+model User {
+  id            String         @id @default(uuid())
+  email         String         @unique
+  name          String?
+  role          Role           @default(CUSTOMER)
+  isVerified    Boolean        @default(false)
+  products      Product[]      @relation("VendorProducts")
+  orders        Order[]        @relation("CustomerOrders")
+  licenses      License[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model Product {
+  id             String      @id @default(uuid())
+  title          String
+  slug           String      @unique
+  description    String      @db.Text
+  category       String
+  priceUSD       Float
+  priceGBP       Float
+  pricePKR       Float
+  rating         Float       @default(4.9)
+  totalReviews   Int         @default(128)
+  totalDownloads Int         @default(1420)
+  isVerified     Boolean     @default(true)
+  contentPayload Json
+  vendorId       String
+  vendor         User        @relation("VendorProducts", fields: [vendorId], references: [id], onDelete: Cascade)
+  orders         OrderItem[]
+  reviews        Review[]
+  createdAt      DateTime    @default(now())
+}
+
+model Review {
+  id        String   @id @default(uuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  author    String
+  country   String
+  rating    Int
+  comment   String   @db.Text
+  createdAt DateTime @default(now())
+}
+
+model Order {
+  id            String        @id @default(uuid())
+  userId        String
+  user          User          @relation("CustomerOrders", fields: [userId], references: [id])
+  totalAmount   Float
+  currency      String
+  status        OrderStatus   @default(PENDING)
+  paymentMethod String
+  receiptUrl    String?
+  items         OrderItem[]
+  licenses      License[]
+  createdAt     DateTime      @default(now())
+}
+
+model OrderItem {
+  id        String   @id @default(uuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  price     Float
+}
+
+model License {
+  id           String   @id @default(uuid())
+  key          String   @unique
+  orderId      String
+  order        Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
+  hardwareHash String?
+  isUsed       Boolean  @default(false)
+  createdAt    DateTime @default(now())
+}
+
+model AnalyticsLog {
+  id        String   @id @default(uuid())
+  ipAddress String
+  country   String
+  path      String
+  referrer  String?
+  timestamp DateTime @default(now())
+}
+
+model SiteConfig {
+  id              String   @id @default("global")
+  bannerDiscount  Int      @default(0)
+  activeTheme     String   @default("cyber-dark")
+  heroMessage     String   @default("Enterprise Digital Assets")
+  updatedAt       DateTime @updatedAt
+}
